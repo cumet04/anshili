@@ -1,14 +1,15 @@
 {
   "name": "anshili",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "repository": "ssh://git@github.com/medalhkr/anshili.git",
   "author": "medalhkr <medalhkr@gmail.com>",
   "license": "MIT",
-  "devDependencies": {
-    "prettier": "^1.16.1"
+  "scripts": {
+    "build": "tsc src/**.ts --outDir dist"
   },
-  "dependencies": {
-    "capture-all": "^0.3.8"
+  "devDependencies": {
+    "prettier": "^1.16.1",
+    "typescript": "^3.2.4"
   }
 }
