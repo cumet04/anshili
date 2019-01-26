@@ -6,10 +6,14 @@
   "author": "medalhkr <medalhkr@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "build": "tsc src/**.ts --outDir dist"
+    "build": "tsc"
   },
   "devDependencies": {
+    "@types/puppeteer": "^1.11.2",
     "prettier": "^1.16.1",
     "typescript": "^3.2.4"
+  },
+  "dependencies": {
+    "puppeteer": "^1.11.0"
   }
 }
