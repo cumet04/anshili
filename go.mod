@@ -1,4 +1,4 @@
-module github.com/medalhkr/anshili
+module github.com/cumet04/anshili
 
 require (
 	github.com/pkg/errors v0.8.1

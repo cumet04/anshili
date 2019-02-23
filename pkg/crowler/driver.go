@@ -1,16 +1,14 @@
-package main
+package crowler
 
 import (
-	"fmt"
-
 	"github.com/sclevine/agouti"
 )
 
-func localChromeDriver() (*agouti.WebDriver, *agouti.Page, error) {
+func LocalChromeDriver() (*agouti.WebDriver, *agouti.Page, error) {
 	driver := agouti.ChromeDriver(
 		agouti.ChromeOptions("args", []string{
 			"--headless",
-			fmt.Sprintf("--window-size=%d,%d", windowWidth, windowHeight),
+			// fmt.Sprintf("--window-size=%d,%d", windowWidth, windowHeight),
 			// https://superuser.com/questions/1189725/disable-chrome-scaling
 			"--high-dpi-support=1",
 			"--force-device-scale-factor=1",

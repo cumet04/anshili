@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cumet04/anshili/pkg/crowler"
 	"github.com/pkg/errors"
 	"github.com/sclevine/agouti"
 )
@@ -96,7 +97,8 @@ func main() {
 	for i := 0; i < parallel; i++ {
 		// url := "http://127.0.0.1:4444/wd/hub"
 		// page, err := remoteDriver(url, "firefox")
-		driver, page, err := localChromeDriver()
+
+		driver, page, err := crowler.LocalChromeDriver()
 		if err != nil {
 			panic(err)
 		}
