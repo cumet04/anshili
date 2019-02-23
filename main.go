@@ -8,25 +8,22 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/sclevine/agouti"
 )
 
-var ctx, cancel = context.WithCancel(context.Background())
-var request = make(chan string, 10)
-var wg sync.WaitGroup
+var request = make(chan string)
 
 var windowWidth = 1280
 var windowHeight = 800
 
 func crowl(page *agouti.Page, url string) error {
-	defer wg.Done()
 	if err := page.Navigate(url); err != nil {
 		return err
 	}
-	if err := capture(page, ".", windowWidth, windowHeight); err != nil {
+
+	if err := capture(page, "./dest", windowWidth, windowHeight); err != nil {
 		return errors.Wrap(err, "capture failed")
 	}
 
@@ -40,48 +37,19 @@ func crowl(page *agouti.Page, url string) error {
 	return nil
 }
 
-func worker(job chan string) error {
-	driver := agouti.ChromeDriver(
-		agouti.ChromeOptions("args", []string{
-			"--headless",
-			fmt.Sprintf("--window-size=%d,%d", windowWidth, windowHeight),
-			// https://superuser.com/questions/1189725/disable-chrome-scaling
-			"--high-dpi-support=1",
-			"--force-device-scale-factor=1",
-		}),
-	)
-	if err := driver.Start(); err != nil {
-		log.Fatal(err)
-	}
-	defer driver.Stop()
-
-	page, err := driver.NewPage()
-	if err != nil {
-		panic(err)
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case url := <-job:
-			fmt.Println(url)
-			if err := crowl(page, url); err != nil {
-				panic(err)
-			}
-		}
-	}
-}
-
 func capture(page *agouti.Page, destDir string, width int, minheight int) error {
 	var pageheight int
 	if err := page.RunScript("return document.body.scrollHeight", nil, &pageheight); err != nil {
 		return err
 	}
 	if pageheight > minheight {
-		page.Size(width, pageheight)
+		if err := page.Size(width, pageheight); err != nil {
+			return err
+		}
 	} else {
-		page.Size(width, minheight)
+		if err := page.Size(width, minheight); err != nil {
+			return err
+		}
 	}
 
 	// make capture file's path from url
@@ -122,10 +90,23 @@ func isNewRequest(url string, baseurl string, done []string) bool {
 }
 
 func main() {
-	parallel := 1
-	baseurl := "http://localhost:8080/"
+	parallel := 4
 
-	var job = make(chan string, 10)
+	pages := make(chan *agouti.Page, parallel)
+	for i := 0; i < parallel; i++ {
+		// url := "http://127.0.0.1:4444/wd/hub"
+		// page, err := remoteDriver(url, "firefox")
+		driver, page, err := localChromeDriver()
+		if err != nil {
+			panic(err)
+		}
+		defer driver.Stop()
+		pages <- page
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	baseurl := "http://localhost:8080/"
 	go func() {
 		var queued []string
 		for {
@@ -133,23 +114,32 @@ func main() {
 			case <-ctx.Done():
 				return
 			case url := <-request:
-				if isNewRequest(url, baseurl, queued) {
-					if len(queued) > 10 { // limit for test
-						break
-					}
-					queued = append(queued, url)
-					wg.Add(1)
-					job <- url
+				if !isNewRequest(url, baseurl, queued) {
+					break
 				}
+				if len(queued) > 10 { // limit for test
+					break
+				}
+				queued = append(queued, url)
+				wg.Add(1)
+				go func() {
+					fmt.Println(url)
+					defer wg.Done()
+					select {
+					case <-ctx.Done():
+						return
+					case page := <-pages:
+						defer func() { pages <- page }()
+						if err := crowl(page, url); err != nil {
+							log.Fatalln(err)
+						}
+					}
+				}()
 			}
 		}
 	}()
-
 	request <- baseurl
-	for i := 0; i < parallel; i++ {
-		go worker(job)
-	}
-	time.Sleep(1 * time.Second)
+
 	wg.Wait()
 	cancel()
 }
