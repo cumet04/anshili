@@ -1,4 +1,4 @@
-package crowler
+package crowl
 
 import (
 	"github.com/sclevine/agouti"
