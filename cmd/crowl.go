@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/cumet04/anshili/pkg/crowl"
-	"github.com/sclevine/agouti"
 	"github.com/spf13/cobra"
 )
 
@@ -20,21 +19,6 @@ var crowlCmd = &cobra.Command{
 }
 
 func crowlFunc() error {
-	parallel := 4
-
-	pages := make(chan *agouti.Page, parallel)
-	for i := 0; i < parallel; i++ {
-		// url := "http://127.0.0.1:4444/wd/hub"
-		// page, err := remoteDriver(url, "firefox")
-
-		driver, page, err := crowl.LocalChromeDriver()
-		if err != nil {
-			panic(err)
-		}
-		defer driver.Stop()
-		pages <- page
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 	baseurl := "http://localhost:8080/"
@@ -55,20 +39,16 @@ func crowlFunc() error {
 				queued = append(queued, url)
 				wg.Add(1)
 				go func() {
-					fmt.Println(url)
 					defer wg.Done()
-					select {
-					case <-ctx.Done():
-						return
-					case page := <-pages:
-						defer func() { pages <- page }()
-						links, err := crowl.CrowlOne(page, url)
-						if err != nil {
-							log.Fatalln(err)
-						}
-						for _, l := range links {
-							request <- l
-						}
+					page, err := crowl.LocalChromeDriver(ctx)
+					if err != nil {
+						log.Fatalln(err)
+					}
+					defer page.Destroy()
+					fmt.Println(url)
+					links, err := crowl.CrowlOne(&page.Page, url)
+					for _, l := range links {
+						request <- l
 					}
 				}()
 			}
